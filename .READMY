@@ -1,0 +1,208 @@
+## المتطلبات الأساسية
+- Node.js (الإصدار 16 أو أحدث)
+- MongoDB (سواء محلي أو MongoDB Atlas)
+
+## طريقة التثبيت والتشغيل
+
+1. قم بتثبيت الحزم والمكتبات:
+   ```bash
+   npm install
+   ```
+
+2. قم بإنشاء ملف `.env` في المجلد الرئيسي وأضف المتغيرات التالية:
+   ```env
+   PORT=5000
+   MONGO_URI=your_mongodb_connection_string
+   ```
+
+3. تشغيل المشروع في بيئة التطوير:
+   ```bash
+   npm run dev
+   ```
+# 📂 هيكل المجلدات
+├── models/         # نماذج قاعدة البيانات (Mongoose Schemas)
+├── controllers/    # منطق التحكم ومعالجة الطلبات
+├── services/       # الخدمات والعمليات البرمجية (مثل OrderService)
+├── utils/          # ملفات المساعدة (AppError,...)
+├──plugin
+ (paginatePlugin)
+└── app.js       # نقطة انطلاق التطبيق
+
+## 🔐 روابط التحقق والصلاحيات (Authentication Endpoints)
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | الحماية والتحقق (Validation / Middleware) | جسم الطلب المتوقع (Request Body) |
+
+| `POST` | `/register` | إنشاء حساب جديد في النظام `validateRegister` | `{ name, email, password, role }` |
+
+| `POST` | `/login` | تسجيل الدخول للنظام | `loginLimiter` (حماية من الهجمات), `validateLogin` | `{ email, password }` |
+
+| `POST` | `/refresh-token` | تجديد صلاحية الـ Access Token | `validateRefreshToken` | `{ refreshToken }` |
+
+| `GET` | `/profile` | جلب بيانات الملف الشخصي للمستخدم الحالي | `requireAuth` | لا يوجد |
+
+| `POST` | `/logout` | تسجيل الخروج وإلغاء صلاحية الجلسة | `requireAuth` | لا يوجد |
+
+| `POST` | `/change-password` | تغيير كلمة المرور الحالية للمستخدم | `requireAuth`, `validateChangePassword` | `{ oldPassword, newPassword }` |
+
+| `DELETE` | `/delete-account/:id` | حذف حساب مستخدم نهائياً من النظام | `requireAuth`, متاح فقط لصلاحية: `client` أو `admin` |
+
+## 🛠️ روابط لوحة التحكم والإدارة (Admin Endpoints)
+
+جميع الروابط في هذا القسم محمية تماماً وتتطلب صلاحية مسؤول (`admin`). يجب إرسال رمز التحقق في الـ Headers الخاص بالطلب (`Authorization: Bearer <Token>`).
+
+تبدأ هذه الروابط عادةً بالمسار الأساسي للإدارة (مثل: `/api/v1/admin`).
+
+### 1. جلب البيانات واستعراض الحسابات (Admin GET Endpoints)
+
+
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | التحقق (Validation Middleware) |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/role-requests` | جلب كافة طلبات ترقية الحسابات المعلقة (مثل طلبات السائقين أو البائعين) | `requireAuth`, `authorize("admin")` |
+| `GET` | `/user/:userId` | جلب بيانات مستخدم محدد عبر المعرّف (ID) | `validateUserIdParam` |
+| `GET` | `/users` | جلب قائمة بجميع المستخدمين في النظام (يدعم التصفية/التصفح) | `validateGetAllUsers` |
+
+---
+
+### 2. إدارة وتعديل الصلاحيات (Admin PATCH Endpoints)
+
+
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | التحقق (Validation Middleware) | جسم الطلب المتوقع (Request Body) |
+| :--- | :--- | :--- | :--- | :--- |
+| `PATCH` | `/approve-role/:userId` | قبول طلب الترقية ومنح المستخدم الصلاحية الجديدة | `validateRoleAction` | `{ role }` (الرتبة المراد قبولها) |
+| `PATCH` | `/reject-role/:userId` | رفض طلب الترقية المعلق للمستخدم | `validateRoleAction` | 
+
+### 3. عمليات الحذف (Admin DELETE Endpoints)
+
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | التحقق (Validation Middleware) |
+| :--- | :--- | :--- | :--- |
+| `DELETE` | `/users/:userId` | حذف حساب مستخدم نهائياً من النظام عبر المعرّف (ID) | `validateUserIdParam` |
+
+## 🏷️ روابط إدارة التصنيفات (Category Endpoints)
+
+تُستخدم هذه الروابط لإدارة تصنيفات المنتجات في النظام، وهي مقسمة إلى روابط عامة للجميع وروابط محمية مخصصة للمسؤولين (`admin`).
+
+تبدأ هذه الروابط عادةً بالمسار الأساسي للتصنيفات (مثل: `/api/v1/categories`).
+
+### 1. الروابط العامة (Public Endpoints)
+متاحة لجميع زوار المنصة دون الحاجة لتسجيل الدخول.
+
+
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | التحقق (Validation Middleware) |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/get-categories` | جلب قائمة بجميع التصنيفات المتاحة في النظام | `validateCategoryQuery` |
+| `GET` | `/get-category/:id` | جلب تفاصيل تصنيف محدد عبر المعرّف (ID) | `validateCategoryId` |
+
+---
+
+### 2. روابط التحكم والإدارة (Admin Endpoints)
+تتطلب هذه الروابط إرسال رمز التحقق في الـ Headers الخاص بالطلب (`Authorization: Bearer <Token>`) وتتوفر فقط لصلاحية `admin`.
+
+
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | التحقق (Validation Middleware) | جسم الطلب المتوقع (Request Body) |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/create-category` | إنشاء تصنيف جديد في النظام | `validateCreateCategory` | `{ name, description, image }` |
+| `PUT` | `/update-category/:id` | تحديث بيانات تصنيف حالي بالكامل عبر الـ ID | `validateUpdateCategory` | `{ name, description, image }` |
+| `DELETE` | `/delete-category/:id` | حذف تصنيف محدد من النظام نهائياً عبر الـ ID | `validateCategoryId` | لا يوجد |
+
+## 🛍️ روابط إدارة المنتجات والمفضلات (Product & Favorites Endpoints)
+
+تُستخدم هذه الروابط لإدارة المنتجات، تصفحها، وإدارتها من قبل البائعين، بالإضافة إلى نظام المفضلات الخاص بالعملاء.
+### 1. الروابط العامة للمنتجات (Public Product Endpoints)
+متاحة لجميع الزوار دون الحاجة لتسجيل الدخول، وهي الأنسب لتطبيق ميزة التصفح الذكي والبحث.
+
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | التحقق (Validation Middleware) |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/getAllProducts` | جلب كافة المنتجات (يدعم البحث، الترتيب، والتصفح) | `validateProductQuery` |
+| `GET` | `/getProductById/:id` | جلب تفاصيل منتج محدد عبر المعرّف (ID) | `validateProductById` |
+| `GET` | `/getProductsByCategory/:categoryId` | جلب المنتجات التابعة لتصنيف معين عبر الـ ID | `validateProductsByCategory` |
+
+---
+
+### 2. روابط مفضلات العميل (Client Favorites Endpoints)
+روابط محمية تتطلب تسجيل دخول العميل وإرسال الـ Bearer Token في الـ Headers (`Authorization: Bearer <Token>`).
+
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | التحقق والصلاحية (Middleware) |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/favorites` | جلب قائمة المنتجات المفضلة للعميل الحالي | `requireAuth`, `authorize("client")` |
+| `POST` | `/addToFavorites/:productId` | إضافة منتج محدد إلى قائمة المفضلات | `validateFavoriteAction` |
+| `DELETE` | `/removeFromFavorites/:productId` | إزالة منتج محدد من قائمة المفضلات | `validateFavoriteAction` |
+
+---
+
+### 3. روابط التحكم والإدارة للبائعين والمسؤولين (Seller & Admin Endpoints)
+تتطلب صلاحية بائع (`seller`) أو مسؤول (`admin`) وتستخدم لإدارة المخزون والمنتجات.
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | التحقق (Validation Middleware) | جسم الطلب المتوقع (Request Body) |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/createProduct` | إضافة منتج جديد إلى المتجر | `validateCreateProduct` | `{ name, description, price, category, quantity, image }` |
+| `PUT` | `/updateProduct/:id` | تحديث بيانات منتج حالي بالكامل عبر الـ ID | `validateUpdateProduct` | `{ name, description, price, quantity, image }` |
+| `DELETE` | `/deleteProduct/:id` | حذف منتج محدد نهائياً من النظام عبر الـ ID | `validateProductById` | لا يوجد |
+
+## 📦 روابط إدارة الطلبات والدورة الحياتية (Order Endpoints)
+
+تُستعمل هذه الروابط لإدارة عمليات الشراء وتتبع الطلبات وتحديث حالاتها، وهي مقسمة بشكل صارم بناءً على الأدوار والصلاحيات (عميل، بائع، سائق، مسؤول).
+
+تبدأ هذه الروابط عادةً بالمسار الأساسي للطلبات (مثل: `/api/v1/orders`).
+
+### 1. عمليات العميل (Client Endpoints)
+تتطلب صلاحية عميل (`client`) وتُعنى بإنشاء الطلبات، دفع قيمتها، وتتبعها.
+
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | التحقق (Validation Middleware) | جسم الطلب المتوقع (Request Body) |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/create-order` | إنشاء طلب أو مجموعة طلبات جديدة من السلة المحلية | `validateCreateOrder` | `{ seller, shippingAddress, items, taxPrice, shippingPrice }` |
+| `GET` | `/history` | جلب تاريخ طلبات العميل الحالي (يدعم التصفح) | لا يوجد | معلمات الرابط المتغيرة (Query Params) |
+| `POST` | `/:id/pay` | معالجة ودفع قيمة طلب محدد عبر الـ ID | `validateOrderIdParam`, `validateProcessPayment` | `{ method, id, status }` |
+| `GET` | `/:id/track` | تتبع حالة الطلب الحالي ومعرفة توقيت التحديثات | `validateOrderIdParam` | لا يوجد |
+| `DELETE` | `/:id/cancel` | إلغاء الطلب من قِبل العميل (قبل بدء التجهيز) | `validateOrderIdParam` | لا يوجد |
+
+---
+
+### 2. عمليات البائع (Seller Endpoints)
+تتطلب صلاحية بائع (`seller`) أو مسؤول (`admin`) وتُعنى بإدارة الطلبات الواردة للمتجر والتحليلات المالية.
+
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | التحقق (Validation Middleware) | جسم الطلب المتوقع (Request Body) |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/seller/dashboard` | استعراض لوحة التحكم وجلب الطلبات الجديدة المعلقة | لا يوجد | معلمات الرابط المتغيرة (Query Params) |
+| `GET` | `/seller/analytics` | جلب إحصائيات الأرباح وإجمالي الطلبات المكتملة | لا يوجد | لا يوجد |
+| `PUT` | `/seller/:id/action` | قبول أو رفض الطلب الجديد الوارد للبائع | `validateSellerAction` | `{ action: "ACCEPT" \| "REJECT" }` |
+| `PUT` | `/seller/:id/status` | تحديث حالة تجهيز الطلب (مثال: من مؤكد إلى قيد التجهيز) | `validateSellerStatusUpdate` | `{ nextStatus: "PREPARING" \| "READY" }` |
+
+---
+
+### 3. عمليات السائق (Driver Endpoints)
+تتطلب صلاحية سائق (`driver`) أو مسؤول (`admin`) للتحكم برحلات التوصيل ودورة حياة الطلب عند الشحن.
+
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | التحقق (Validation Middleware) | جسم الطلب المتوقع (Request Body) |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/driver/pool` | جلب الطلبات الجاهزة للتوصيل والمتاحة لجميع السائقين | لا يوجد | معلمات الرابط المتغيرة (Query Params) |
+| `PUT` | `/driver/:id/accept` | قبول السائق لتوصيل الطلب وحجزه لبدء الرحلة | `validateOrderIdParam` | لا يوجد |
+| `PUT` | `/driver/:id/lifecycle` | تحديث حالة الرحلة والتوصيل (مثال: جاري التوصيل، تم التوصيل) | `validateDriverLifecycleUpdate` | `{ status: "PICKED_UP" \| "DELIVERED" }` |
+
+## 💬 روابط التقييمات والمراجعات (Review Endpoints)
+تُستخدم هذه الروابط لإدارة مراجعات وتقييمات المنتجات من قبل العملاء، واستعراضها من قبل زوار المنصة.
+
+### 1. الروابط العامة (Public Endpoints)
+متاحة لجميع زوار المنصة لاستعراض آراء العملاء حول منتج معين دون الحاجة لتسجيل الدخول.
+
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | التحقق (Validation Middleware) |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/get-Product-Reviews/:productId` | جلب جميع التقييمات والمراجعات الخاصة بمنتج محدد عبر الـ ID | `validateGetProductReviews` |
+
+---
+
+### 2. روابط التحكم والعمليات للعملاء والمسؤولين (Client & Admin Endpoints)
+روابط محمية تتطلب إرسال رمز التحقق في الـ Headers الخاص بالطلب (`Authorization: Bearer <Token>`).
+
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | الحماية والتحقق (Middleware) | جسم الطلب المتوقع (Request Body) |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/create` | إضافة تقييم ومراجعة جديدة لمنتج تم شراؤه | `requireAuth`, `authorize("client")`, `validateCreateReview` | `{ productId, rating, comment }` |
+| `PUT` | `/update/:id` | تحديث بيانات مراجعة حالية للعميل عبر الـ ID | `requireAuth`, `authorize("client")`, `validateUpdateReview` | `{ rating, comment }` |
+| `DELETE` | `/delete/:id` | حذف مراجعة محددة نهائياً من النظام عبر الـ ID | `requireAuth`, متاح لـ: `client` (صاحب التقييم) أو `admin`, `validateDeleteReview` | لا يوجد |
+
+## 👥 روابط إدارة رتب المستخدمين (User Role Management Endpoints)
+
+يُستخدم هذا الرابط لتمكين المستخدمين الحاليين (العملاء) من تقديم طلبات لترقية حساباتهم إلى رتب أخرى داخل المنصة (مثل الترقية إلى بائع أو سائق)، ليقوم المسؤول (`admin`) بمراجعتها لاحقاً.
+
+### 1. روابط عمليات العميل (Client Endpoints)
+رابط محمي يتطلب تسجيل دخول العميل وإرسال الـ Bearer Token في الـ Headers (`Authorization: Bearer <Token>`).
+| طريقة الطلب (Method) | الرابط (Endpoint) | الوصف | الحماية والتحقق (Middleware) | جسم الطلب المتوقع (Request Body) |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/request-role` | تقديم طلب رسمي لترقية الحساب إلى رتبة جديدة (بائع / سائق) | `requireAuth`, `authorize("client")`, `validateRequestRole` | `{ requestedRole: "seller" \| "driver", documentation: {} }` |

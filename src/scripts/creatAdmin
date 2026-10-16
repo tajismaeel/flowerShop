@@ -1,0 +1,62 @@
+require("dotenv").config();
+const User = require("../models/User");
+const connectDB = require("../utils/connectDB.js");
+const passwordService = require("../utils/passwordService");
+const createAdminUser = async () => {
+  try {
+    await connectDB();
+
+    const adminEmail = process.env.SUPERADMIN_EMAIL;
+    const adminPassword = process.env.SUPERADMIN_PASS;
+
+    // أدوار الأدمن الصحيحة كمصفوفة مطابقة للموديل
+    const correctRoles = ["client", "admin"];
+
+    // 1. فحص هل البريد الإلكتروني للأدمن موجود مسبقاً؟
+    const existedAdmin = await User.findOne({ email: adminEmail });
+
+    if (existedAdmin) {
+      const currentRoles = Array.isArray(existedAdmin.role)
+        ? existedAdmin.role
+        : [existedAdmin.role];
+
+      const hasRoleChanged =
+        currentRoles.length !== correctRoles.length ||
+        !correctRoles.every((role) => currentRoles.includes(role));
+
+      if (hasRoleChanged) {
+        console.log(
+          "Admin account found. Roles mismatch detected. Updating roles...",
+        );
+
+        await User.updateOne(
+          { _id: existedAdmin._id },
+          { $set: { role: correctRoles } },
+        );
+
+        console.log("Admin roles updated to Array successfully.");
+      } else {
+        console.log(
+          "Admin account found. Roles are already up-to-date. No DB request needed.",
+        );
+      }
+      return;
+    }
+    // 2. إذا لم يكن موجوداً، يتم إنشاؤه لأول مرة كمصفوفة
+    await User.create({
+      firstName: "Admin",
+      lastName: "User",
+      email: adminEmail,
+      password: await passwordService.hashPassword(adminPassword),
+      role: correctRoles, // مصفوفة صريحة
+      phone: "+9912345688",
+      isEmailVerified: true,
+    });
+
+    console.log("Admin user created from scratch successfully");
+  } catch (error) {
+    console.error("Error in admin script:", error.message);
+  }
+};
+
+module.exports = createAdminUser;
